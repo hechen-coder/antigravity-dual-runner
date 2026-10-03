@@ -212,7 +212,7 @@ for %%I in ("%PROFILE_DIR%") do set "HOMEPATH=%%~pI%%~nxI"
 REM 激活 Electron 主进程独立实例直连浏览器引擎 (彻底解决 Google OAuth 登录弹窗)
 set "ANTIGRAVITY_SECONDARY_INSTANCE=1"
 REM 确保不抑制 Language Server 启动外部浏览器
-set "ANTIGRAVITY_VSCODE_HOST="
+set "ANTIGRAVITY_VSCODE_HOST=1"
 
 REM ==================================================
 REM 2. 科学上网代理配置 (请按需修改；若不需要代理，请设 ENABLE_PROXY=0)
