@@ -1,0 +1,23 @@
+# Logs & Temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE configurations
+.vscode/
+.idea/
+
+# Local scratch / debug tools
+debug_tools/
