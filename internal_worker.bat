@@ -19,6 +19,11 @@ set "HOME=%PROFILE_DIR%"
 set "HOMEDRIVE=C:"
 for %%I in ("%PROFILE_DIR%") do set "HOMEPATH=%%~pI%%~nxI"
 
+REM 激活 Electron 主进程独立实例直连浏览器引擎 (彻底解决 Google OAuth 登录弹窗)
+set "ANTIGRAVITY_SECONDARY_INSTANCE=1"
+REM 确保不抑制 Language Server 启动外部浏览器
+set "ANTIGRAVITY_VSCODE_HOST="
+
 REM ==================================================
 REM 2. 科学上网代理配置 (请按需修改；若不需要代理，请设 ENABLE_PROXY=0)
 REM ==================================================
@@ -34,26 +39,27 @@ if "%ENABLE_PROXY%"=="1" (
 )
 
 REM ==================================================
-REM 3. 自动为隔离用户注册默认浏览器协议 (解决 Google OAuth 登录弹窗问题)
+REM 3. 自动为隔离用户注册默认浏览器协议 (清理 DelegateExecute 避免 COM 阻塞)
 REM ==================================================
-reg query "HKCU\Software\Classes\http\shell\open\command" >nul 2>&1
-if %errorlevel% neq 0 (
-    set "SYS_BROWSER="
-    if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
-        set "SYS_BROWSER=C:\Program Files\Google\Chrome\Application\chrome.exe"
-    ) else if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
-        set "SYS_BROWSER=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
-    ) else if exist "C:\Program Files\Microsoft\Edge\Application\msedge.exe" (
-        set "SYS_BROWSER=C:\Program Files\Microsoft\Edge\Application\msedge.exe"
-    )
-    if defined SYS_BROWSER (
-        reg add "HKCU\Software\Classes\http" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol" /f >nul 2>&1
-        reg add "HKCU\Software\Classes\http" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
-        reg add "HKCU\Software\Classes\http\shell\open\command" /ve /t REG_SZ /d ""!SYS_BROWSER!" --single-argument "%%1"" /f >nul 2>&1
-        reg add "HKCU\Software\Classes\https" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol with Privacy" /f >nul 2>&1
-        reg add "HKCU\Software\Classes\https" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
-        reg add "HKCU\Software\Classes\https\shell\open\command" /ve /t REG_SZ /d ""!SYS_BROWSER!" --single-argument "%%1"" /f >nul 2>&1
-    )
+set "SYS_BROWSER="
+if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
+    set "SYS_BROWSER=C:\Program Files\Google\Chrome\Application\chrome.exe"
+) else if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
+    set "SYS_BROWSER=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+) else if exist "C:\Program Files\Microsoft\Edge\Application\msedge.exe" (
+    set "SYS_BROWSER=C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+)
+
+if defined SYS_BROWSER (
+    reg add "HKCU\Software\Classes\http" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\http" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\http\shell\open\command" /ve /t REG_SZ /d "\"!SYS_BROWSER!\" --single-argument \"%%%%1\"" /f >nul 2>&1
+    reg delete "HKCU\Software\Classes\http\shell\open\command" /v "DelegateExecute" /f >nul 2>&1
+
+    reg add "HKCU\Software\Classes\https" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol with Privacy" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\https" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\https\shell\open\command" /ve /t REG_SZ /d "\"!SYS_BROWSER!\" --single-argument \"%%%%1\"" /f >nul 2>&1
+    reg delete "HKCU\Software\Classes\https\shell\open\command" /v "DelegateExecute" /f >nul 2>&1
 )
 
 REM ==================================================

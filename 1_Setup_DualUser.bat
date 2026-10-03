@@ -29,7 +29,7 @@ if %errorlevel% neq 0 (
     echo 正在请求管理员权限 (UAC 弹窗)...
     echo 若未弹出，请右键点击本脚本选择【以管理员身份运行】。
     echo ======================================================
-    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k ""%~f0"" ""%HOST_PROFILE%""' -Verb RunAs" 2>nul
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~f0\"\" \"\"%HOST_PROFILE%\"\"' -Verb RunAs" 2>nul
     pause
     exit /b
 )
@@ -42,11 +42,16 @@ echo ======================================================
 echo.
 
 REM ==================================================
-REM 3. 基础参数与目录配置
+REM 3. 基础参数与目录配置 (智能兼容现有 .antigravity-profile2 与 Antigravity2)
 REM ==================================================
 set "TARGET_USER=Antigravity2"
 set "TARGET_PASS=Anti@2026!Pass"
-set "TARGET_PROFILE=%HOST_PROFILE%\Antigravity2"
+
+set "TARGET_PROFILE=%HOST_PROFILE%\.antigravity-profile2"
+if not exist "%TARGET_PROFILE%" (
+    if exist "%HOST_PROFILE%\Antigravity2" set "TARGET_PROFILE=%HOST_PROFILE%\Antigravity2"
+)
+
 set "APP_DIR=%HOST_PROFILE%\AppData\Local\Programs\antigravity"
 
 echo [*] 当前宿主用户主目录: %HOST_PROFILE%
@@ -167,6 +172,7 @@ echo 存储路径: %TARGET_PROFILE%
 echo.
 echo 启动方式:
 echo    直接双击桌面上的【Antigravity (账号2 - 独立隔离)】
+echo    或双击本目录下的【2_Launch_Account2.bat】
 echo    (首次启动若弹窗提示输入密码，盲打输入一次 Anti@2026!Pass 即可永久免密秒开)
 echo    (已开启 100%% 静默无黑框引擎，0 卡顿，秒开启动！)
 echo ======================================================

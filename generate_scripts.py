@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Antigravity Windows 多开物理隔离脚手架构建脚本
-自动以 GBK / CRLF 规范生成无硬编码、零卡顿、无黑窗口的极速启动套件
+自动以 GBK / CRLF 规范生成无硬编码、零卡顿、无黑窗口、支持带空格路径与 Google OAuth 弹窗的极速启动套件
 """
 import os
 
@@ -36,7 +36,7 @@ if %errorlevel% neq 0 (
     echo 正在请求管理员权限 (UAC 弹窗)...
     echo 若未弹出，请右键点击本脚本选择【以管理员身份运行】。
     echo ======================================================
-    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \"\"%~f0\"\" \"\"%HOST_PROFILE%\"\"' -Verb RunAs" 2>nul
+    powershell -NoProfile -Command "Start-Process cmd.exe -ArgumentList '/k \\"\\"%~f0\\"\\" \\"\\"%HOST_PROFILE%\\"\\"' -Verb RunAs" 2>nul
     pause
     exit /b
 )
@@ -49,11 +49,16 @@ echo ======================================================
 echo.
 
 REM ==================================================
-REM 3. 基础参数与目录配置
+REM 3. 基础参数与目录配置 (智能兼容现有 .antigravity-profile2 与 Antigravity2)
 REM ==================================================
 set "TARGET_USER=Antigravity2"
 set "TARGET_PASS=Anti@2026!Pass"
-set "TARGET_PROFILE=%HOST_PROFILE%\\Antigravity2"
+
+set "TARGET_PROFILE=%HOST_PROFILE%\\.antigravity-profile2"
+if not exist "%TARGET_PROFILE%" (
+    if exist "%HOST_PROFILE%\\Antigravity2" set "TARGET_PROFILE=%HOST_PROFILE%\\Antigravity2"
+)
+
 set "APP_DIR=%HOST_PROFILE%\\AppData\\Local\\Programs\\antigravity"
 
 echo [*] 当前宿主用户主目录: %HOST_PROFILE%
@@ -174,6 +179,7 @@ echo 存储路径: %TARGET_PROFILE%
 echo.
 echo 启动方式:
 echo    直接双击桌面上的【Antigravity (账号2 - 独立隔离)】
+echo    或双击本目录下的【2_Launch_Account2.bat】
 echo    (首次启动若弹窗提示输入密码，盲打输入一次 Anti@2026!Pass 即可永久免密秒开)
 echo    (已开启 100%% 静默无黑框引擎，0 卡顿，秒开启动！)
 echo ======================================================
@@ -203,6 +209,11 @@ set "HOME=%PROFILE_DIR%"
 set "HOMEDRIVE=C:"
 for %%I in ("%PROFILE_DIR%") do set "HOMEPATH=%%~pI%%~nxI"
 
+REM 激活 Electron 主进程独立实例直连浏览器引擎 (彻底解决 Google OAuth 登录弹窗)
+set "ANTIGRAVITY_SECONDARY_INSTANCE=1"
+REM 确保不抑制 Language Server 启动外部浏览器
+set "ANTIGRAVITY_VSCODE_HOST="
+
 REM ==================================================
 REM 2. 科学上网代理配置 (请按需修改；若不需要代理，请设 ENABLE_PROXY=0)
 REM ==================================================
@@ -218,26 +229,27 @@ if "%ENABLE_PROXY%"=="1" (
 )
 
 REM ==================================================
-REM 3. 自动为隔离用户注册默认浏览器协议 (解决 Google OAuth 登录弹窗问题)
+REM 3. 自动为隔离用户注册默认浏览器协议 (清理 DelegateExecute 避免 COM 阻塞)
 REM ==================================================
-reg query "HKCU\\Software\\Classes\\http\\shell\\open\\command" >nul 2>&1
-if %errorlevel% neq 0 (
-    set "SYS_BROWSER="
-    if exist "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" (
-        set "SYS_BROWSER=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-    ) else if exist "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" (
-        set "SYS_BROWSER=C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-    ) else if exist "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe" (
-        set "SYS_BROWSER=C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
-    )
-    if defined SYS_BROWSER (
-        reg add "HKCU\\Software\\Classes\\http" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol" /f >nul 2>&1
-        reg add "HKCU\\Software\\Classes\\http" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
-        reg add "HKCU\\Software\\Classes\\http\\shell\\open\\command" /ve /t REG_SZ /d "\"!SYS_BROWSER!\" --single-argument \"%%1\"" /f >nul 2>&1
-        reg add "HKCU\\Software\\Classes\\https" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol with Privacy" /f >nul 2>&1
-        reg add "HKCU\\Software\\Classes\\https" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
-        reg add "HKCU\\Software\\Classes\\https\\shell\\open\\command" /ve /t REG_SZ /d "\"!SYS_BROWSER!\" --single-argument \"%%1\"" /f >nul 2>&1
-    )
+set "SYS_BROWSER="
+if exist "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" (
+    set "SYS_BROWSER=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+) else if exist "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" (
+    set "SYS_BROWSER=C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+) else if exist "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe" (
+    set "SYS_BROWSER=C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
+)
+
+if defined SYS_BROWSER (
+    reg add "HKCU\\Software\\Classes\\http" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol" /f >nul 2>&1
+    reg add "HKCU\\Software\\Classes\\http" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
+    reg add "HKCU\\Software\\Classes\\http\\shell\\open\\command" /ve /t REG_SZ /d "\\"!SYS_BROWSER!\\" --single-argument \\"%%%%1\\"" /f >nul 2>&1
+    reg delete "HKCU\\Software\\Classes\\http\\shell\\open\\command" /v "DelegateExecute" /f >nul 2>&1
+
+    reg add "HKCU\\Software\\Classes\\https" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol with Privacy" /f >nul 2>&1
+    reg add "HKCU\\Software\\Classes\\https" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
+    reg add "HKCU\\Software\\Classes\\https\\shell\\open\\command" /ve /t REG_SZ /d "\\"!SYS_BROWSER!\\" --single-argument \\"%%%%1\\"" /f >nul 2>&1
+    reg delete "HKCU\\Software\\Classes\\https\\shell\\open\\command" /v "DelegateExecute" /f >nul 2>&1
 )
 
 REM ==================================================
@@ -263,17 +275,56 @@ exit 0
 """
 
 launch_account2_bat = """@echo off
-setlocal
+title 启动 Antigravity 账号2 (独立隔离)
+setlocal enabledelayedexpansion
+
 cd /d "%~dp0"
 
-set "TARGET_USER=Antigravity2"
-set "SAFE_WORKER=%~dp0run_account2.bat"
+REM ==================================================
+REM 1. 动态推导宿主主用户的真实主目录
+REM ==================================================
+set "HOST_PROFILE=%USERPROFILE%"
+if "%HOST_PROFILE:~-1%"=="\\" set "HOST_PROFILE=%HOST_PROFILE:~0,-1%"
+for %%I in ("%HOST_PROFILE%") do (
+    if /i "%%~nxI"==".antigravity-profile2" set "HOST_PROFILE=%%~dpI"
+    if /i "%%~nxI"=="Antigravity2" set "HOST_PROFILE=%%~dpI"
+)
+if "%HOST_PROFILE:~-1%"=="\\" set "HOST_PROFILE=%HOST_PROFILE:~0,-1%"
 
-if not exist "%SAFE_WORKER%" (
-    if exist "%~dp0internal_worker.bat" copy /y "%~dp0internal_worker.bat" "%SAFE_WORKER%" >nul 2>&1
+REM ==================================================
+REM 2. 检查隔离运行环境目录 (优先级: .antigravity-profile2 > Antigravity2)
+REM ==================================================
+set "TARGET_PROFILE=%HOST_PROFILE%\\.antigravity-profile2"
+if not exist "%TARGET_PROFILE%" set "TARGET_PROFILE=%HOST_PROFILE%\\Antigravity2"
+
+if not exist "%TARGET_PROFILE%\\launch_silent.vbs" (
+    if not exist "%TARGET_PROFILE%\\run_account2.bat" (
+        echo ======================================================
+        echo [提示] 检测到隔离环境尚未初始化！
+        echo 请先双击运行 [1_Setup_DualUser.bat] 完成一键配置。
+        echo ======================================================
+        pause
+        exit /b 1
+    )
 )
 
-runas /profile /savecred /user:%TARGET_USER% "cmd.exe /c \"%SAFE_WORKER%\""
+REM 自动同步本工程最新脚本到运行时环境 (确保配置更新实时生效)
+if exist "%~dp0internal_worker.bat" copy /y "%~dp0internal_worker.bat" "%TARGET_PROFILE%\\run_account2.bat" >nul 2>&1
+if exist "%~dp0launch_silent.vbs" copy /y "%~dp0launch_silent.vbs" "%TARGET_PROFILE%\\launch_silent.vbs" >nul 2>&1
+if exist "%~dp0worker_silent.vbs" copy /y "%~dp0worker_silent.vbs" "%TARGET_PROFILE%\\worker_silent.vbs" >nul 2>&1
+
+REM ==================================================
+REM 3. 静默秒开启动 (彻底消除黑窗口、无路径空格解析 Bug、秒开运行)
+REM ==================================================
+if exist "%TARGET_PROFILE%\\launch_silent.vbs" (
+    wscript.exe //nologo "%TARGET_PROFILE%\\launch_silent.vbs"
+    exit /b 0
+)
+
+REM 兜底直接使用 runas (转义嵌套引号，防止因路径含空格报错闪退)
+set "TARGET_USER=Antigravity2"
+set "SAFE_WORKER=%TARGET_PROFILE%\\run_account2.bat"
+runas /profile /savecred /user:%TARGET_USER% "cmd.exe /c \\"\\"%SAFE_WORKER%\\"\\""
 exit /b 0
 """
 
@@ -430,9 +481,13 @@ def main():
     print("=" * 60)
     print(" 正在生成可移植、零卡顿、无黑窗口的 Antigravity 双开脚本套件 ")
     print("=" * 60)
+    
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    
     for fname, fc in files.items():
+        fpath = os.path.join(script_dir, fname)
         normalized = fc.replace("\r\n", "\n").replace("\n", "\r\n")
-        with open(fname, "w", encoding="gbk", errors="replace") as f:
+        with open(fpath, "w", encoding="gbk", errors="replace") as f:
             f.write(normalized)
         print(f"[OK] 已生成: {fname} (GBK, CRLF)")
 
