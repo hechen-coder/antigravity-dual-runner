@@ -189,79 +189,81 @@ exit /b 0
 """
 
 internal_worker_bat = """@echo off
+
+REM ==================================================
+REM 1. 鑷�鍔ㄤ负闅旂�荤敤鎴锋敞鍐岄粯璁ゆ祻瑙堝櫒鍗忚��涓庣綉缁滀唬鐞�
+REM (娉ㄦ剰锛氬繀椤诲湪 enabledelayedexpansion 鍓嶆墽琛岋紝浠ョ‘淇� %1 鍑嗙‘鍐欏叆娉ㄥ唽琛�)
+REM ==================================================
+set "SYS_BROWSER="
+if exist "C:\Program Files\Google\Chrome\Application\chrome.exe" (
+    set "SYS_BROWSER=C:\Program Files\Google\Chrome\Application\chrome.exe"
+) else if exist "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" (
+    set "SYS_BROWSER=C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe"
+) else if exist "C:\Program Files\Microsoft\Edge\Application\msedge.exe" (
+    set "SYS_BROWSER=C:\Program Files\Microsoft\Edge\Application\msedge.exe"
+)
+
+if defined SYS_BROWSER (
+    reg add "HKCU\Software\Classes\http" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\http" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\http\shell\open\command" /ve /t REG_SZ /d "\"%SYS_BROWSER%\" --single-argument \"%%1\"" /f >nul 2>&1
+    reg delete "HKCU\Software\Classes\http\shell\open\command" /v "DelegateExecute" /f >nul 2>&1
+
+    reg add "HKCU\Software\Classes\https" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol with Privacy" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\https" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
+    reg add "HKCU\Software\Classes\https\shell\open\command" /ve /t REG_SZ /d "\"%SYS_BROWSER%\" --single-argument \"%%1\"" /f >nul 2>&1
+    reg delete "HKCU\Software\Classes\https\shell\open\command" /v "DelegateExecute" /f >nul 2>&1
+)
+
+set "PROXY_HOST=127.0.0.1"
+set "PROXY_PORT=7890"
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyEnable /t REG_DWORD /d 1 /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyServer /t REG_SZ /d "%PROXY_HOST%:%PROXY_PORT%" /f >nul 2>&1
+reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Internet Settings" /v ProxyOverride /t REG_SZ /d "<local>;localhost;127.0.0.1" /f >nul 2>&1
+
 setlocal enabledelayedexpansion
 
 REM ==================================================
-REM 1. 动态定位独立存储目录与宿主用户目录
+REM 2. 鍔ㄦ�佸畾浣嶇嫭绔嬪瓨鍌ㄧ洰褰曚笌瀹夸富鐢ㄦ埛鐩�褰�
 REM ==================================================
 set "PROFILE_DIR=%~dp0"
-if "%PROFILE_DIR:~-1%"=="\\" set "PROFILE_DIR=%PROFILE_DIR:~0,-1%"
+if "%PROFILE_DIR:~-1%"=="\" set "PROFILE_DIR=%PROFILE_DIR:~0,-1%"
 
-for %%I in ("%PROFILE_DIR%\\..") do set "HOST_PROFILE=%%~fI"
+for %%I in ("%PROFILE_DIR%\..") do set "HOST_PROFILE=%%~fI"
 
-if not exist "%PROFILE_DIR%\\AppData\\Roaming" mkdir "%PROFILE_DIR%\\AppData\\Roaming" >nul 2>&1
-if not exist "%PROFILE_DIR%\\AppData\\Local" mkdir "%PROFILE_DIR%\\AppData\\Local" >nul 2>&1
+if not exist "%PROFILE_DIR%\AppData\Roaming" mkdir "%PROFILE_DIR%\AppData\Roaming" >nul 2>&1
+if not exist "%PROFILE_DIR%\AppData\Local" mkdir "%PROFILE_DIR%\AppData\Local" >nul 2>&1
 
 set "USERPROFILE=%PROFILE_DIR%"
-set "APPDATA=%PROFILE_DIR%\\AppData\\Roaming"
-set "LOCALAPPDATA=%PROFILE_DIR%\\AppData\\Local"
+set "APPDATA=%PROFILE_DIR%\AppData\Roaming"
+set "LOCALAPPDATA=%PROFILE_DIR%\AppData\Local"
 set "HOME=%PROFILE_DIR%"
 set "HOMEDRIVE=C:"
 for %%I in ("%PROFILE_DIR%") do set "HOMEPATH=%%~pI%%~nxI"
 
-REM 激活 Electron 主进程独立实例直连浏览器引擎 (彻底解决 Google OAuth 登录弹窗)
+REM 婵�娲� Electron 涓昏繘绋嬬嫭绔嬪疄渚嬬洿杩炴祻瑙堝櫒寮曟搸 (褰诲簳瑙ｅ喅 Google OAuth 鐧诲綍寮圭獥)
 set "ANTIGRAVITY_SECONDARY_INSTANCE=1"
-REM 确保不抑制 Language Server 启动外部浏览器
+REM 纭�淇� Language Server 鎵撳嵃骞堕�氱煡澶栭儴娴忚�堝櫒 URL
 set "ANTIGRAVITY_VSCODE_HOST=1"
 
 REM ==================================================
-REM 2. 科学上网代理配置 (请按需修改；若不需要代理，请设 ENABLE_PROXY=0)
+REM 3. 鐜�澧冨彉閲忎唬鐞嗚�剧疆
 REM ==================================================
-set "ENABLE_PROXY=1"
-set "PROXY_HOST=127.0.0.1"
-set "PROXY_PORT=7890"
-
-if "%ENABLE_PROXY%"=="1" (
-    set "HTTP_PROXY=http://%PROXY_HOST%:%PROXY_PORT%"
-    set "HTTPS_PROXY=http://%PROXY_HOST%:%PROXY_PORT%"
-    set "ALL_PROXY=socks5://%PROXY_HOST%:%PROXY_PORT%"
-    set "NO_PROXY=localhost,127.0.0.1,::1"
-)
+set "HTTP_PROXY=http://%PROXY_HOST%:%PROXY_PORT%"
+set "HTTPS_PROXY=http://%PROXY_HOST%:%PROXY_PORT%"
+set "ALL_PROXY=socks5://%PROXY_HOST%:%PROXY_PORT%"
+set "NO_PROXY=localhost,127.0.0.1,::1"
 
 REM ==================================================
-REM 3. 自动为隔离用户注册默认浏览器协议 (清理 DelegateExecute 避免 COM 阻塞)
-REM ==================================================
-set "SYS_BROWSER="
-if exist "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" (
-    set "SYS_BROWSER=C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-) else if exist "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe" (
-    set "SYS_BROWSER=C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
-) else if exist "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe" (
-    set "SYS_BROWSER=C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe"
-)
-
-if defined SYS_BROWSER (
-    reg add "HKCU\\Software\\Classes\\http" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol" /f >nul 2>&1
-    reg add "HKCU\\Software\\Classes\\http" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
-    reg add "HKCU\\Software\\Classes\\http\\shell\\open\\command" /ve /t REG_SZ /d "\\"!SYS_BROWSER!\\" --single-argument \\"%%%%1\\"" /f >nul 2>&1
-    reg delete "HKCU\\Software\\Classes\\http\\shell\\open\\command" /v "DelegateExecute" /f >nul 2>&1
-
-    reg add "HKCU\\Software\\Classes\\https" /ve /t REG_SZ /d "URL:HyperText Transfer Protocol with Privacy" /f >nul 2>&1
-    reg add "HKCU\\Software\\Classes\\https" /v "URL Protocol" /t REG_SZ /d "" /f >nul 2>&1
-    reg add "HKCU\\Software\\Classes\\https\\shell\\open\\command" /ve /t REG_SZ /d "\\"!SYS_BROWSER!\\" --single-argument \\"%%%%1\\"" /f >nul 2>&1
-    reg delete "HKCU\\Software\\Classes\\https\\shell\\open\\command" /v "DelegateExecute" /f >nul 2>&1
-)
-
-REM ==================================================
-REM 4. 动态定位 Antigravity 主程序
+REM 4. 鍔ㄦ�佸畾浣� Antigravity 涓荤▼搴�
 REM ==================================================
 set "ANTIGRAVITY_EXE="
-if exist "%HOST_PROFILE%\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe" (
-    set "ANTIGRAVITY_EXE=%HOST_PROFILE%\\AppData\\Local\\Programs\\antigravity\\Antigravity.exe"
-) else if exist "%LOCALAPPDATA%\\Programs\\antigravity\\Antigravity.exe" (
-    set "ANTIGRAVITY_EXE=%LOCALAPPDATA%\\Programs\\antigravity\\Antigravity.exe"
-) else if exist "%ProgramFiles%\\Antigravity\\Antigravity.exe" (
-    set "ANTIGRAVITY_EXE=%ProgramFiles%\\Antigravity\\Antigravity.exe"
+if exist "%HOST_PROFILE%\AppData\Local\Programs\antigravity\Antigravity.exe" (
+    set "ANTIGRAVITY_EXE=%HOST_PROFILE%\AppData\Local\Programs\antigravity\Antigravity.exe"
+) else if exist "%LOCALAPPDATA%\Programs\antigravity\Antigravity.exe" (
+    set "ANTIGRAVITY_EXE=%LOCALAPPDATA%\Programs\antigravity\Antigravity.exe"
+) else if exist "%ProgramFiles%\Antigravity\Antigravity.exe" (
+    set "ANTIGRAVITY_EXE=%ProgramFiles%\Antigravity\Antigravity.exe"
 )
 
 if not defined ANTIGRAVITY_EXE exit /b 1
@@ -269,8 +271,8 @@ if not defined ANTIGRAVITY_EXE exit /b 1
 for %%I in ("%ANTIGRAVITY_EXE%") do set "ANTIGRAVITY_DIR=%%~dpI"
 cd /d "%ANTIGRAVITY_DIR%"
 
-REM 极速拉起，立即退出 (无延迟、不残留 CMD 控制台)
-start "" "%ANTIGRAVITY_EXE%" --user-data-dir="%APPDATA%\\Antigravity" %*
+REM 鏋侀�熸媺璧凤紝绔嬪嵆閫�鍑� (鏃犲欢杩熴�佷笉娈嬬暀 CMD 鎺у埗鍙�)
+start "" "%ANTIGRAVITY_EXE%" --user-data-dir="%APPDATA%\Antigravity" %*
 exit 0
 """
 
@@ -339,18 +341,32 @@ launch_silent_vbs = '''Set WshShell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
 
 strDir = fso.GetParentFolderName(WScript.ScriptFullName)
-strWorkerVbs = strDir & "\\worker_silent.vbs"
-strWorkerBat = strDir & "\\run_account2.bat"
-
+strWorkerBat = strDir & "\run_account2.bat"
 q = Chr(34)
 
-If fso.FileExists(strWorkerVbs) Then
-    strCmd = "runas /profile /savecred /user:Antigravity2 " & q & "wscript.exe //nologo \\" & q & strWorkerVbs & "\\" & q & q
-Else
-    strCmd = "runas /profile /savecred /user:Antigravity2 " & q & "cmd.exe /c \\" & q & strWorkerBat & "\\" & q & q
-End If
+' 测试凭据是否已成功保存 (执行简单的 exit 0 测试)
+intRet = WshShell.Run("cmd.exe /c runas /savecred /user:Antigravity2 ""cmd.exe /c exit 0""", 0, True)
 
-WshShell.Run strCmd, 0, False
+If intRet = 0 Then
+    ' 凭据有效：全静默拉起，无任何窗口、秒开
+    strCmd = "runas /profile /savecred /user:Antigravity2 " & q & "cmd.exe /c " & strWorkerBat & q
+    WshShell.Run strCmd, 0, False
+Else
+    ' 凭据需要初始化：打开前台可见窗口引导用户盲打一次密码 Anti@2026!Pass
+    strInitCmd = "cmd.exe /k ""title Antigravity 账号2 凭据初始化 & mode con: cols=65 lines=14 & color 0B & " & _
+        "echo ========================================================= & " & _
+        "echo      Antigravity 账号2 凭据初始化向导 (仅首次需要) & " & _
+        "echo ========================================================= & " & _
+        "echo. & " & _
+        "echo 检测到尚未保存隔离账户 Antigravity2 的登录凭据。 & " & _
+        "echo 请在下方提示处输入默认密码并回车: & " & _
+        "echo [ 默认密码 ]: Anti@2026!Pass & " & _
+        "echo (注: Windows 密码输入时不会显示任何字符，直接输入回车即可) & " & _
+        "echo ========================================================= & " & _
+        "echo. & " & _
+        "runas /profile /savecred /user:Antigravity2 " & q & "cmd.exe /c " & strWorkerBat & q & " & exit"""
+    WshShell.Run strInitCmd, 1, False
+End If
 '''
 
 reset_cred_bat = """@echo off
